@@ -219,7 +219,7 @@ export default function LandingPage() {
           </div>
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-white/60">
             <a href="#mission" className="hover:text-white transition-colors">Home</a>
-            <a href="#events" className="hover:text-white transition-colors">Announcement</a>
+            <a href="#events" className="hover:text-white transition-colors">Announcements</a>
             <a href="#highlights" className="hover:text-white transition-colors">Highlights</a>
             <a href="#story" className="hover:text-white transition-colors">Our Story</a>
           </div>
@@ -456,11 +456,11 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Founding Members & Co-creators */}
+        {/* Founding Team & Co-creators */}
         <section id="founders" className="py-24 px-6 border-t border-white/5">
           <div className="max-w-7xl mx-auto">
             <div className="text-center mb-16">
-              <h2 className="text-4xl md:text-5xl font-display font-bold mb-6 text-gradient">Founding Members</h2>
+              <h2 className="text-4xl md:text-5xl font-display font-bold mb-6 text-gradient">Founding Team</h2>
               <p className="text-white/60 max-w-2xl mx-auto">The core team behind Talkware, dedicated to building a vibrant creator ecosystem in Mandalay.</p>
             </div>
 
