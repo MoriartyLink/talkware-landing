@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS public.events (
     speaker TEXT,
     description TEXT,
     link TEXT,
+    archived BOOLEAN DEFAULT false,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 

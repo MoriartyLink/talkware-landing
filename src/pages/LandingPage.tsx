@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { ArrowRight, Calendar, Users, Zap, Globe, Github, Trophy, Rocket, Mail, Phone } from "lucide-react";
+import { ArrowRight, Calendar, Users, Zap, Globe, Github, Trophy, Rocket, Mail, Phone, User } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
 const REGISTER_URL = "https://docs.google.com/forms/d/e/1FAIpQLSc36OmsSG-1iLlA2_THVL3JKlGkR0-JWfd1IyrEOyZtPKjfnw/viewform?usp=header";
@@ -81,7 +81,7 @@ export default function LandingPage() {
     async function fetchData() {
       try {
         const [eventsData, highlightsData, creatorsData, volunteersData] = await Promise.all([
-          supabase.from('events').select('*').order('created_at', { ascending: false }),
+          supabase.from('events').select('*').eq('archived', false).order('created_at', { ascending: false }),
           supabase.from('highlights').select('*').order('num', { ascending: true }),
           supabase.from('co_creators').select('*').order('created_at', { ascending: true }),
           supabase.from('volunteers').select('*').order('created_at', { ascending: true })
@@ -258,7 +258,7 @@ export default function LandingPage() {
             </motion.h1>
 
             <motion.p variants={itemVariants} className="max-w-2xl mx-auto text-lg md:text-xl text-white/60 font-light leading-relaxed mb-12">
-              A community where developers stop building useless tools and start building real products with the right idea makers
+              Home for passionate tech builders in Mandalay.
             </motion.p>
 
             <motion.div variants={itemVariants} className="flex justify-center">
@@ -283,9 +283,9 @@ export default function LandingPage() {
                 viewport={{ once: true }}
                 transition={{ duration: 0.6 }}
               >
-                <h2 className="text-4xl md:text-5xl font-display font-bold mb-6">Our Mission</h2>
+                <h2 className="text-4xl md:text-5xl font-display font-bold mb-6">Mission</h2>
                 <p className="text-white/60 text-lg leading-relaxed mb-8">
-                  To operate as an interchange where isolated developers and idea-only founders connect to build products transparently
+                  To create a place where passionate juniors can belong, connect with fellow builders, and grow together through shared learning, discussions, and product building.
                 </p>
                 <div className="grid sm:grid-cols-2 gap-6">
                   <div className="p-6 glass rounded-2xl">
@@ -542,11 +542,17 @@ export default function LandingPage() {
                     className="glass rounded-xl overflow-hidden group flex flex-col text-center"
                   >
                     <div className="aspect-square overflow-hidden">
-                      <img
-                        src={volunteer.image_url || "/logo.png"}
-                        alt={volunteer.name}
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                      />
+                      {volunteer.image_url ? (
+                        <img
+                          src={volunteer.image_url}
+                          alt={volunteer.name}
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-white/5">
+                          <User className="w-12 h-12 text-white/20" />
+                        </div>
+                      )}
                     </div>
                     <div className="p-3">
                       <h3 className="font-display font-bold text-xs mb-0.5">{volunteer.name}</h3>
@@ -575,7 +581,7 @@ export default function LandingPage() {
                 <span className="font-display font-bold text-xl tracking-tighter uppercase">Talkware</span>
               </div>
               <p className="text-white/40 max-w-sm mb-8">
-                A community where developers stop building useless tools and start building real products with the right idea makers
+                Home for passionate tech builders in Mandalay.
               </p>
               <div className="flex items-center gap-4">
                 <a href="https://github.com/orgs/talkware-mm/" target="_blank" rel="noopener noreferrer" className="p-3 glass rounded-full text-white/40 hover:text-white transition-all"><Github className="w-5 h-5" /></a>

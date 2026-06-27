@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
-import { Plus, Trash2, Edit2, LogOut, LayoutDashboard, Calendar, Trophy, Users as UsersIcon, Upload, Save, X, ExternalLink } from "lucide-react";
+import { Plus, Trash2, Edit2, LogOut, LayoutDashboard, Calendar, Trophy, Users as UsersIcon, Upload, Save, X, ExternalLink, Archive, User } from "lucide-react";
 
 type Tab = 'events' | 'highlights' | 'co_creators' | 'volunteers';
 
@@ -61,6 +61,12 @@ export default function AdminDashboard() {
   const handleDelete = async (table: string, id: string) => {
     if (!confirm('Are you sure?')) return;
     const { error } = await supabase.from(table).delete().eq('id', id);
+    if (error) alert(error.message);
+    else fetchData();
+  };
+
+  const handleArchive = async (id: string, archived: boolean) => {
+    const { error } = await supabase.from('events').update({ archived: !archived }).eq('id', id);
     if (error) alert(error.message);
     else fetchData();
   };
@@ -376,6 +382,7 @@ export default function AdminDashboard() {
                 </div>
                 <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
                   <button onClick={() => { setIsEditing(ev.id); setFormData(ev); }} className="p-2 hover:bg-white/10 rounded-lg text-white/60 hover:text-white"><Edit2 className="w-5 h-5" /></button>
+                  <button onClick={() => handleArchive(ev.id, ev.archived)} className={`p-2 hover:bg-white/10 rounded-lg transition-all ${ev.archived ? 'text-yellow-400 hover:text-yellow-300' : 'text-white/60 hover:text-white'}`} title={ev.archived ? 'Unarchive' : 'Archive'}><Archive className="w-5 h-5" /></button>
                   <button onClick={() => handleDelete('events', ev.id)} className="p-2 hover:bg-red-400/20 rounded-lg text-white/60 hover:text-red-400"><Trash2 className="w-5 h-5" /></button>
                 </div>
               </div>
@@ -401,7 +408,11 @@ export default function AdminDashboard() {
             {activeTab === 'co_creators' && coCreators.map(co => (
               <div key={co.id} className="glass p-4 rounded-2xl flex items-center justify-between border border-white/5 hover:border-white/20 transition-all group">
                 <div className="flex items-center gap-4">
-                  <img src={co.image_url} className="w-12 h-12 rounded-full object-cover" alt="" />
+                  {co.image_url ? (
+                    <img src={co.image_url} className="w-12 h-12 rounded-full object-cover" alt="" />
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-white/40"><User className="w-5 h-5" /></div>
+                  )}
                   <div>
                     <h4 className="font-bold">{co.name}</h4>
                     <p className="text-white/40 text-xs uppercase tracking-widest">{co.role}</p>
@@ -420,7 +431,7 @@ export default function AdminDashboard() {
                   {vo.image_url ? (
                     <img src={vo.image_url} className="w-12 h-12 rounded-full object-cover" alt="" />
                   ) : (
-                    <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-white/40 text-xs font-bold">?</div>
+                    <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-white/40"><User className="w-5 h-5" /></div>
                   )}
                   <div>
                     <h4 className="font-bold">{vo.name}</h4>
