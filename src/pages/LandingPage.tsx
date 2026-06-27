@@ -218,8 +218,8 @@ export default function LandingPage() {
             <span className="font-display font-bold text-xl tracking-tighter uppercase">Talkware</span>
           </div>
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-white/60">
-            <a href="#mission" className="hover:text-white transition-colors">Mission</a>
-            <a href="#events" className="hover:text-white transition-colors">Events</a>
+            <a href="#mission" className="hover:text-white transition-colors">Home</a>
+            <a href="#events" className="hover:text-white transition-colors">Announcement</a>
             <a href="#highlights" className="hover:text-white transition-colors">Highlights</a>
             <a href="#story" className="hover:text-white transition-colors">Our Story</a>
           </div>
