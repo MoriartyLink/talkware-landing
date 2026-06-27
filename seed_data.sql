@@ -14,8 +14,13 @@ VALUES
 ('05', 'High Value Freelancer', 'March 8, 2026', 'The Manner Cafe', '1:00 – 3:30 PM', '/assets/events/img-013.png', 'Sir Thiha as Guest Speaker.New Talkware Co-creators joined. Planned NewWorld Program & Talkware Protocol.'),
 ('06', 'Find Your Team Build Your Idea', 'Apr 19, 2026', 'The Cups Cafe', '1:00 – 3:30 PM', '/assets/events/img-014.jpg', 'Sir AKKT as Guest Speaker. Introduced the Solution ,Product Builder''s Stack ');
 
--- Seed Founding Members (into co_creators or you can leave them static)
--- I'll seed them so they can be edited if needed
+-- Seed Volunteers
+INSERT INTO public.volunteers (name, role, image_url)
+VALUES 
+('John Doe', 'Event Coordinator', ''),
+('Jane Smith', 'Community Outreach', ''),
+('Alex Lee', 'Technical Support', ''),
+('Sarah Chen', 'Marketing Lead', '');
 INSERT INTO public.co_creators (name, role, image_url)
 VALUES 
 ('Khant Min Nyo (Lucius)', 'Community Leader, Business Strategist, Front-end Developer', '/assets/founders/individual/khant_min_nyo.png'),

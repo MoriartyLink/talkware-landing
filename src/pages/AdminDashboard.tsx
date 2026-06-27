@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { Plus, Trash2, Edit2, LogOut, LayoutDashboard, Calendar, Trophy, Users as UsersIcon, Upload, Save, X, ExternalLink } from "lucide-react";
 
-type Tab = 'events' | 'highlights' | 'co_creators';
+type Tab = 'events' | 'highlights' | 'co_creators' | 'volunteers';
 
 export default function AdminDashboard() {
   const [session, setSession] = useState<any>(null);
@@ -15,6 +15,7 @@ export default function AdminDashboard() {
   const [events, setEvents] = useState<any[]>([]);
   const [highlights, setHighlights] = useState<any[]>([]);
   const [coCreators, setCoCreators] = useState<any[]>([]);
+  const [volunteers, setVolunteers] = useState<any[]>([]);
   
   // Form state
   const [isEditing, setIsEditing] = useState<string | null>(null);
@@ -37,14 +38,16 @@ export default function AdminDashboard() {
   }, []);
 
   async function fetchData() {
-    const [ev, hi, co] = await Promise.all([
+    const [ev, hi, co, vo] = await Promise.all([
       supabase.from('events').select('*').order('created_at', { ascending: false }),
       supabase.from('highlights').select('*').order('num', { ascending: false }),
-      supabase.from('co_creators').select('*').order('created_at', { ascending: true })
+      supabase.from('co_creators').select('*').order('created_at', { ascending: true }),
+      supabase.from('volunteers').select('*').order('created_at', { ascending: true })
     ]);
     if (ev.data) setEvents(ev.data);
     if (hi.data) setHighlights(hi.data);
     if (co.data) setCoCreators(co.data);
+    if (vo.data) setVolunteers(vo.data);
   }
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -176,6 +179,12 @@ export default function AdminDashboard() {
             className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'co_creators' ? 'bg-white text-black' : 'hover:bg-white/5 text-white/60'}`}
           >
             <UsersIcon className="w-5 h-5" /> Co-creators
+          </button>
+          <button 
+            onClick={() => { setActiveTab('volunteers'); setIsEditing(null); }}
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'volunteers' ? 'bg-white text-black' : 'hover:bg-white/5 text-white/60'}`}
+          >
+            <UsersIcon className="w-5 h-5" /> Volunteers
           </button>
         </nav>
 
@@ -321,6 +330,34 @@ export default function AdminDashboard() {
                 </>
               )}
 
+              {activeTab === 'volunteers' && (
+                <>
+                  <div>
+                    <label className="block text-xs font-bold text-white/40 mb-2 uppercase">Name</label>
+                    <input type="text" value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-white/30" required />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-white/40 mb-2 uppercase">Role</label>
+                    <input type="text" value={formData.role || ''} onChange={e => setFormData({...formData, role: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-white/30" required />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-white/40 mb-2 uppercase">Profile Image</label>
+                    <div className="flex items-center gap-4">
+                      {formData.image_url && (
+                        <img src={formData.image_url} alt="Preview" className="w-16 h-16 rounded-full object-cover border-2 border-white/10" />
+                      )}
+                      <label className="flex-1 cursor-pointer">
+                        <div className="w-full py-4 border-2 border-dashed border-white/10 rounded-xl flex items-center justify-center gap-2 hover:bg-white/5 transition-all text-white/40">
+                          <Upload className="w-5 h-5" />
+                          {uploading ? 'Uploading...' : 'Click to Upload'}
+                        </div>
+                        <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'volunteers')} />
+                      </label>
+                    </div>
+                  </div>
+                </>
+              )}
+
               <button type="submit" className="w-full py-4 bg-white text-black font-bold rounded-xl flex items-center justify-center gap-2 hover:bg-white/90 transition-all">
                 <Save className="w-5 h-5" /> Save Changes
               </button>
@@ -373,6 +410,26 @@ export default function AdminDashboard() {
                 <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
                   <button onClick={() => { setIsEditing(co.id); setFormData(co); }} className="p-2 hover:bg-white/10 rounded-lg text-white/60 hover:text-white"><Edit2 className="w-5 h-5" /></button>
                   <button onClick={() => handleDelete('co_creators', co.id)} className="p-2 hover:bg-red-400/20 rounded-lg text-white/60 hover:text-red-400"><Trash2 className="w-5 h-5" /></button>
+                </div>
+              </div>
+            ))}
+
+            {activeTab === 'volunteers' && volunteers.map(vo => (
+              <div key={vo.id} className="glass p-4 rounded-2xl flex items-center justify-between border border-white/5 hover:border-white/20 transition-all group">
+                <div className="flex items-center gap-4">
+                  {vo.image_url ? (
+                    <img src={vo.image_url} className="w-12 h-12 rounded-full object-cover" alt="" />
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-white/40 text-xs font-bold">?</div>
+                  )}
+                  <div>
+                    <h4 className="font-bold">{vo.name}</h4>
+                    <p className="text-white/40 text-xs uppercase tracking-widest">{vo.role}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                  <button onClick={() => { setIsEditing(vo.id); setFormData(vo); }} className="p-2 hover:bg-white/10 rounded-lg text-white/60 hover:text-white"><Edit2 className="w-5 h-5" /></button>
+                  <button onClick={() => handleDelete('volunteers', vo.id)} className="p-2 hover:bg-red-400/20 rounded-lg text-white/60 hover:text-red-400"><Trash2 className="w-5 h-5" /></button>
                 </div>
               </div>
             ))}

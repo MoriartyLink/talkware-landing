@@ -35,6 +35,13 @@ interface CoCreator {
   image_url: string;
 }
 
+interface Volunteer {
+  id: string;
+  name: string;
+  role: string;
+  image_url: string;
+}
+
 const FOUNDING_MEMBERS = [
   {
     name: "Khant Min Nyo (Lucius)",
@@ -67,20 +74,23 @@ export default function LandingPage() {
   const [events, setEvents] = useState<Event[]>([]);
   const [highlights, setHighlights] = useState<Highlight[]>([]);
   const [coCreators, setCoCreators] = useState<CoCreator[]>([]);
+  const [volunteers, setVolunteers] = useState<Volunteer[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const [eventsData, highlightsData, creatorsData] = await Promise.all([
+        const [eventsData, highlightsData, creatorsData, volunteersData] = await Promise.all([
           supabase.from('events').select('*').order('created_at', { ascending: false }),
           supabase.from('highlights').select('*').order('num', { ascending: true }),
-          supabase.from('co_creators').select('*').order('created_at', { ascending: true })
+          supabase.from('co_creators').select('*').order('created_at', { ascending: true }),
+          supabase.from('volunteers').select('*').order('created_at', { ascending: true })
         ]);
 
         if (eventsData.data && eventsData.data.length > 0) setEvents(eventsData.data as Event[]);
         if (highlightsData.data && highlightsData.data.length > 0) setHighlights(highlightsData.data as Highlight[]);
         if (creatorsData.data && creatorsData.data.length > 0) setCoCreators(creatorsData.data as CoCreator[]);
+        if (volunteersData.data && volunteersData.data.length > 0) setVolunteers(volunteersData.data as Volunteer[]);
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -513,6 +523,43 @@ export default function LandingPage() {
                 <p className="text-white/40 uppercase tracking-widest text-sm font-bold">Coming Soon</p>
               </div>
             )}
+
+            {/* Volunteers */}
+            <div className="text-center mb-16 mt-24">
+              <h2 className="text-3xl font-display font-bold mb-4">Volunteers</h2>
+              <p className="text-white/60 max-w-2xl mx-auto text-sm">The dedicated volunteers who help make Talkware events and operations possible.</p>
+            </div>
+
+            {volunteers.length > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+                {volunteers.map((volunteer, i) => (
+                  <motion.div
+                    key={volunteer.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: i * 0.05 }}
+                    className="glass rounded-xl overflow-hidden group flex flex-col text-center"
+                  >
+                    <div className="aspect-square overflow-hidden">
+                      <img
+                        src={volunteer.image_url || "/logo.png"}
+                        alt={volunteer.name}
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                      />
+                    </div>
+                    <div className="p-3">
+                      <h3 className="font-display font-bold text-xs mb-0.5">{volunteer.name}</h3>
+                      <p className="text-[9px] text-white/40 uppercase font-bold tracking-wider">{volunteer.role}</p>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center p-12 glass rounded-[3rem] border border-white/5">
+                <p className="text-white/40 uppercase tracking-widest text-sm font-bold">Coming Soon</p>
+              </div>
+            )}
           </div>
         </section>
 
@@ -531,9 +578,7 @@ export default function LandingPage() {
                 A community where developers stop building useless tools and start building real products with the right idea makers
               </p>
               <div className="flex items-center gap-4">
-                <a href="#" className="p-3 glass rounded-full text-white/40 hover:text-white transition-all"><Twitter className="w-5 h-5" /></a>
-                <a href="#" className="p-3 glass rounded-full text-white/40 hover:text-white transition-all"><Instagram className="w-5 h-5" /></a>
-                <a href="#" className="p-3 glass rounded-full text-white/40 hover:text-white transition-all"><Github className="w-5 h-5" /></a>
+                <a href="https://github.com/orgs/talkware-mm/" target="_blank" rel="noopener noreferrer" className="p-3 glass rounded-full text-white/40 hover:text-white transition-all"><Github className="w-5 h-5" /></a>
               </div>
             </div>
 
