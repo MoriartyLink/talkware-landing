@@ -62,8 +62,8 @@ CREATE POLICY "Allow public read-only access for highlights" ON public.highlight
 CREATE POLICY "Allow public read-only access for co_creators" ON public.co_creators FOR SELECT USING (true);
 CREATE POLICY "Allow public read-only access for volunteers" ON public.volunteers FOR SELECT USING (true);
 
--- Admin Full Access (Corrected to use 'FOR ALL')
-CREATE POLICY "Allow admin full access for events" ON public.events FOR ALL TO authenticated USING (true);
-CREATE POLICY "Allow admin full access for highlights" ON public.highlights FOR ALL TO authenticated USING (true);
-CREATE POLICY "Allow admin full access for co_creators" ON public.co_creators FOR ALL TO authenticated USING (true);
-CREATE POLICY "Allow admin full access for volunteers" ON public.volunteers FOR ALL TO authenticated USING (true);
+-- Admin Full Access (Corrected with USING and WITH CHECK)
+CREATE POLICY "Allow admin full access for events" ON public.events FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow admin full access for highlights" ON public.highlights FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow admin full access for co_creators" ON public.co_creators FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow admin full access for volunteers" ON public.volunteers FOR ALL TO authenticated USING (true) WITH CHECK (true);

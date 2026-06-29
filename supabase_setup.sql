@@ -54,10 +54,10 @@ CREATE OR REPLACE POLICY "Allow public read-only access for co_creators" ON publ
 CREATE OR REPLACE POLICY "Allow public read-only access for volunteers" ON public.volunteers FOR SELECT USING (true);
 
 -- Allow only authenticated users (Admin) to insert/update/delete
-CREATE OR REPLACE POLICY "Allow admin full access for events" ON public.events ALL TO authenticated USING (true);
-CREATE OR REPLACE POLICY "Allow admin full access for highlights" ON public.highlights ALL TO authenticated USING (true);
-CREATE OR REPLACE POLICY "Allow admin full access for co_creators" ON public.co_creators ALL TO authenticated USING (true);
-CREATE OR REPLACE POLICY "Allow admin full access for volunteers" ON public.volunteers ALL TO authenticated USING (true);
+CREATE OR REPLACE POLICY "Allow admin full access for events" ON public.events FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE OR REPLACE POLICY "Allow admin full access for highlights" ON public.highlights FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE OR REPLACE POLICY "Allow admin full access for co_creators" ON public.co_creators FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE OR REPLACE POLICY "Allow admin full access for volunteers" ON public.volunteers FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 -- 4. Create Storage Bucket for assets
 -- Note: Run this in the Supabase Dashboard if the bucket doesn't exist

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
-import { Plus, Trash2, Edit2, LogOut, LayoutDashboard, Calendar, Trophy, Users as UsersIcon, Upload, Save, X, ExternalLink, Archive, User } from "lucide-react";
+import { Plus, Trash2, Edit2, LogOut, LayoutDashboard, Calendar, Trophy, Users as UsersIcon, Upload, Save, X, ExternalLink, User } from "lucide-react";
 
 type Tab = 'events' | 'highlights' | 'co_creators' | 'volunteers';
 
@@ -21,6 +21,7 @@ export default function AdminDashboard() {
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [formData, setFormData] = useState<any>({});
   const [uploading, setUploading] = useState(false);
+  // showArchived removed - 'archived' column doesn't exist in the database
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -61,12 +62,6 @@ export default function AdminDashboard() {
   const handleDelete = async (table: string, id: string) => {
     if (!confirm('Are you sure?')) return;
     const { error } = await supabase.from(table).delete().eq('id', id);
-    if (error) alert(error.message);
-    else fetchData();
-  };
-
-  const handleArchive = async (id: string, archived: boolean) => {
-    const { error } = await supabase.from('events').update({ archived: !archived }).eq('id', id);
     if (error) alert(error.message);
     else fetchData();
   };
@@ -246,6 +241,10 @@ export default function AdminDashboard() {
                     </div>
                   </div>
                   <div>
+                    <label className="block text-xs font-bold text-white/40 mb-2 uppercase">Location</label>
+                    <input type="text" value={formData.location || ''} onChange={e => setFormData({...formData, location: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-white/30" placeholder="e.g., Shadow Cafe, 107 64" />
+                  </div>
+                  <div>
                     <label className="block text-xs font-bold text-white/40 mb-2 uppercase">Speaker (Optional)</label>
                     <input type="text" value={formData.speaker || ''} onChange={e => setFormData({...formData, speaker: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-white/30" />
                   </div>
@@ -378,11 +377,10 @@ export default function AdminDashboard() {
                     <span className="px-2 py-0.5 bg-white/10 rounded text-[10px] font-bold uppercase tracking-widest">{ev.type}</span>
                     <h4 className="font-bold text-lg">{ev.title}</h4>
                   </div>
-                  <p className="text-white/40 text-sm">{ev.date}</p>
+                  <p className="text-white/40 text-sm">{ev.date}{ev.location ? ` • ${ev.location}` : ''}</p>
                 </div>
                 <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
                   <button onClick={() => { setIsEditing(ev.id); setFormData(ev); }} className="p-2 hover:bg-white/10 rounded-lg text-white/60 hover:text-white"><Edit2 className="w-5 h-5" /></button>
-                  <button onClick={() => handleArchive(ev.id, ev.archived)} className={`p-2 hover:bg-white/10 rounded-lg transition-all ${ev.archived ? 'text-yellow-400 hover:text-yellow-300' : 'text-white/60 hover:text-white'}`} title={ev.archived ? 'Unarchive' : 'Archive'}><Archive className="w-5 h-5" /></button>
                   <button onClick={() => handleDelete('events', ev.id)} className="p-2 hover:bg-red-400/20 rounded-lg text-white/60 hover:text-red-400"><Trash2 className="w-5 h-5" /></button>
                 </div>
               </div>

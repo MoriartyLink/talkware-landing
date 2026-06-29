@@ -81,7 +81,7 @@ export default function LandingPage() {
     async function fetchData() {
       try {
         const [eventsData, highlightsData, creatorsData, volunteersData] = await Promise.all([
-          supabase.from('events').select('*').eq('archived', false).order('created_at', { ascending: false }),
+          supabase.from('events').select('*').order('created_at', { ascending: false }),
           supabase.from('highlights').select('*').order('num', { ascending: true }),
           supabase.from('co_creators').select('*').order('created_at', { ascending: true }),
           supabase.from('volunteers').select('*').order('created_at', { ascending: true })
@@ -123,27 +123,8 @@ export default function LandingPage() {
     },
   };
 
-  // Fallback data if DB is empty
-  const displayEvents = events.length > 0 ? events : [
-    {
-      id: '1',
-      title: "How To Pitch Your Project?",
-      date: "May 23, 2026 • 1:00 PM",
-      type: "Meetup" as const,
-      location: "Location : To Be Announced (Mandalay)",
-      description: "To Be Announced",
-      link: "https://docs.google.com/forms/d/e/1FAIpQLScH7nV55e6NhJSEPM7Fcn3J4z8IbVS1yNPdRJGXNhW_oy3VoA/viewform?usp=dialog"
-    },
-    {
-      id: '2',
-      title: "The Flutter-based simple loyalty application",
-      date: "May 18, 2026 • 7:30 PM",
-      type: "Training" as const,
-      speaker: "Sir Aung Ko Ko Thet",
-      description: "Master the basics of Flutter by building a practical loyalty application from scratch. (90 Days Duration)",
-      link: "https://docs.google.com/forms/d/e/1FAIpQLSccpXrLVNgKMq5goHXwKozXAuxIPCAbQ0808n003u6LTo45fg/viewform?usp=header"
-    }
-  ];
+  // Only show events from the database (filtered non-archived in fetchData)
+  const displayEvents = events;
 
   const displayHighlights = highlights.length > 0 ? highlights : [
     {
