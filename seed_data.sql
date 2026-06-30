@@ -21,6 +21,13 @@ VALUES
 ('Jane Smith', 'Community Outreach', ''),
 ('Alex Lee', 'Technical Support', ''),
 ('Sarah Chen', 'Marketing Lead', '');
+INSERT INTO public.founding_team (name, role, image_url, active, sort_order)
+VALUES 
+('Khant Min Nyo (Lucius)', 'Community Leader, Business Strategist, Front-end Developer', '/assets/founders/individual/khant_min_nyo.png', true, 1),
+('Min Thu Khaing', 'Head of Planning, Backend Developer', '/assets/founders/individual/min_thu_khaing.png', true, 2),
+('Sai Wanna Htun', 'Head of Project, Backend Developer', '/assets/founders/individual/sai_wanna_htun.png', true, 3),
+('Han Thi Moe (De Dee)', 'Head of Creative Design, Frontend Developer', '/assets/founders/individual/han_thi_moe.png', true, 4),
+('Shoon Lae Lae Htun', 'Head of Engagement & Marketing', '/assets/founders/individual/shoon_lae_lae_htun.png', true, 5);
 INSERT INTO public.co_creators (name, role, image_url)
 VALUES 
 ('Khant Min Nyo (Lucius)', 'Community Leader, Business Strategist, Front-end Developer', '/assets/founders/individual/khant_min_nyo.png'),

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { Plus, Trash2, Edit2, LogOut, LayoutDashboard, Calendar, Trophy, Users as UsersIcon, Upload, Save, X, ExternalLink, User, Image, Video, Sparkles, Zap, Gamepad2, Archive, ArchiveRestore } from "lucide-react";
 
-type Tab = 'events' | 'highlights' | 'co_creators' | 'volunteers';
+type Tab = 'events' | 'highlights' | 'co_creators' | 'volunteers' | 'founders';
 
 export default function AdminDashboard() {
   const [session, setSession] = useState<any>(null);
@@ -16,6 +16,7 @@ export default function AdminDashboard() {
   const [highlights, setHighlights] = useState<any[]>([]);
   const [coCreators, setCoCreators] = useState<any[]>([]);
   const [volunteers, setVolunteers] = useState<any[]>([]);
+  const [founders, setFounders] = useState<any[]>([]);
   
   // Form state
   const [isEditing, setIsEditing] = useState<string | null>(null);
@@ -46,16 +47,31 @@ export default function AdminDashboard() {
   }, []);
 
   async function fetchData() {
-    const [ev, hi, co, vo] = await Promise.all([
-      supabase.from('events').select('*').order('created_at', { ascending: false }),
-      supabase.from('highlights').select('*').order('num', { ascending: false }),
-      supabase.from('co_creators').select('*').order('created_at', { ascending: true }),
-      supabase.from('volunteers').select('*').order('created_at', { ascending: true })
-    ]);
-    if (ev.data) setEvents(ev.data);
-    if (hi.data) setHighlights(hi.data);
-    if (co.data) setCoCreators(co.data);
-    if (vo.data) setVolunteers(vo.data);
+    try {
+      const [ev, hi, co, vo, fo] = await Promise.all([
+        supabase.from('events').select('*').order('created_at', { ascending: false }),
+        supabase.from('highlights').select('*').order('num', { ascending: false }),
+        supabase.from('co_creators').select('*').order('created_at', { ascending: true }),
+        supabase.from('volunteers').select('*').order('created_at', { ascending: true }),
+        supabase.from('founding_team').select('*').order('sort_order', { ascending: true })
+      ]);
+
+      if (ev.data && ev.data.length > 0) setEvents(ev.data);
+      if (hi.data && hi.data.length > 0) setHighlights(hi.data);
+      if (co.data && co.data.length > 0) setCoCreators(co.data);
+      if (vo.data && vo.data.length > 0) setVolunteers(vo.data);
+      if (fo.data && fo.data.length > 0) setFounders(fo.data);
+
+      // Log any individual query errors
+      [ev, hi, co, vo, fo].forEach((result, index) => {
+        if (result.error) {
+          console.error(`Error fetching data from query ${index}:`, result.error);
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      alert('Failed to load data. Please check the browser console for details.');
+    }
   }
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -65,6 +81,8 @@ export default function AdminDashboard() {
   };
 
   const handleLogout = () => supabase.auth.signOut();
+
+  const getTableName = (tab: Tab) => tab === 'founders' ? 'founding_team' : tab;
 
   const handleDelete = async (table: string, id: string) => {
     if (!confirm('Are you sure?')) return;
@@ -79,10 +97,16 @@ export default function AdminDashboard() {
     else fetchData();
   };
 
+  const handleToggleFounders = async (id: string, current: boolean) => {
+    const { error } = await supabase.from('founding_team').update({ active: !current }).eq('id', id);
+    if (error) alert(error.message);
+    else fetchData();
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    let table = activeTab;
-    
+    let table = getTableName(activeTab);
+
     // Clean up formData before saving
     const dataToSave = { ...formData };
     delete dataToSave.id;
@@ -258,6 +282,12 @@ export default function AdminDashboard() {
             className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'volunteers' ? 'bg-white text-black' : 'hover:bg-white/5 text-white/60'}`}
           >
             <UsersIcon className="w-5 h-5" /> Volunteers
+          </button>
+          <button 
+            onClick={() => { setActiveTab('founders'); setIsEditing(null); }}
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'founders' ? 'bg-white text-black' : 'hover:bg-white/5 text-white/60'}`}
+          >
+            <UsersIcon className="w-5 h-5" /> Founding Team
           </button>
         </nav>
 
@@ -594,6 +624,43 @@ export default function AdminDashboard() {
                 </>
               )}
 
+              {activeTab === 'founders' && (
+                <>
+                  <div>
+                    <label className="block text-xs font-bold text-white/40 mb-2 uppercase">Name</label>
+                    <input type="text" value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-white/30" required />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-white/40 mb-2 uppercase">Role</label>
+                    <input type="text" value={formData.role || ''} onChange={e => setFormData({...formData, role: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-white/30" required />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-white/40 mb-2 uppercase">Profile Image</label>
+                    <div className="flex items-center gap-4">
+                      {formData.image_url && (
+                        <img src={formData.image_url} alt="Preview" className="w-16 h-16 rounded-full object-cover border-2 border-white/10" />
+                      )}
+                      <label className="flex-1 cursor-pointer">
+                        <div className="w-full py-4 border-2 border-dashed border-white/10 rounded-xl flex items-center justify-center gap-2 hover:bg-white/5 transition-all text-white/40">
+                          <Upload className="w-5 h-5" />
+                          {uploading ? 'Uploading...' : 'Click to Upload'}
+                        </div>
+                        <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'founders')} />
+                      </label>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <input 
+                      id="founders-active" 
+                      type="checkbox" 
+                      checked={!!formData.active} 
+                      onChange={e => setFormData({...formData, active: e.target.checked})}                      className="w-4 h-4 rounded border-white/20 bg-white/5 text-white focus:ring-white/30"
+                    />
+                    <label htmlFor="founders-active" className="text-sm text-white/60">Active</label>
+                  </div>
+                </>
+              )}
+
               <button type="submit" className="w-full py-4 bg-white text-black font-bold rounded-xl flex items-center justify-center gap-2 hover:bg-white/90 transition-all">
                 <Save className="w-5 h-5" /> Save Changes
               </button>
@@ -601,6 +668,9 @@ export default function AdminDashboard() {
           </div>
         ) : (
           <div className="grid gap-4">
+            {activeTab === 'events' && events.length === 0 && (
+              <p className="text-white/40 text-sm py-8 text-center">No events found. Add one to get started.</p>
+            )}
             {activeTab === 'events' && events.map(ev => (
               <div key={ev.id} className={`glass p-6 rounded-2xl flex items-center justify-between border transition-all group ${ev.archived ? 'border-white/5 opacity-60' : 'border-white/5 hover:border-white/20'}`}>
                 <div>
@@ -621,6 +691,9 @@ export default function AdminDashboard() {
               </div>
             ))}
 
+            {activeTab === 'highlights' && highlights.length === 0 && (
+              <p className="text-white/40 text-sm py-8 text-center">No highlights found. Add one to get started.</p>
+            )}
             {activeTab === 'highlights' && highlights.map(hi => (
               <div key={hi.id} className="glass p-6 rounded-2xl flex items-center justify-between border border-white/5 hover:border-white/20 transition-all group">
                 <div className="flex items-center gap-6">
@@ -638,6 +711,9 @@ export default function AdminDashboard() {
               </div>
             ))}
 
+            {activeTab === 'co_creators' && coCreators.length === 0 && (
+              <p className="text-white/40 text-sm py-8 text-center">No co-creators found. Add one to get started.</p>
+            )}
             {activeTab === 'co_creators' && coCreators.map(co => (
               <div key={co.id} className="glass p-4 rounded-2xl flex items-center justify-between border border-white/5 hover:border-white/20 transition-all group">
                 <div className="flex items-center gap-4">
@@ -654,6 +730,31 @@ export default function AdminDashboard() {
                 <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
                   <button onClick={() => { setIsEditing(co.id); setFormData(co); }} className="p-2 hover:bg-white/10 rounded-lg text-white/60 hover:text-white"><Edit2 className="w-5 h-5" /></button>
                   <button onClick={() => handleDelete('co_creators', co.id)} className="p-2 hover:bg-red-400/20 rounded-lg text-white/60 hover:text-red-400"><Trash2 className="w-5 h-5" /></button>
+                </div>
+              </div>
+            ))}
+
+            {activeTab === 'founders' && founders.length === 0 && (
+              <p className="text-white/40 text-sm py-8 text-center">No founding team members found. Add one to get started.</p>
+            )}
+            {activeTab === 'founders' && founders.map(f => (
+              <div 
+                key={f.id} 
+                onClick={() => handleToggleFounders(f.id, f.active)}                className={`glass p-4 rounded-2xl flex items-center justify-between border transition-all group cursor-pointer ${!f.active ? 'border-white/5 opacity-60' : 'border-white/5 hover:border-white/20'}`}              >
+                <div className="flex items-center gap-4">
+                  {f.image_url ? (
+                    <img src={f.image_url} className="w-12 h-12 rounded-full object-cover" alt="" />
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-white/40"><User className="w-5 h-5" /></div>
+                  )}
+                  <div>
+                    <h4 className="font-bold">{f.name}</h4>
+                    <p className="text-white/40 text-xs uppercase tracking-widest">{f.role}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all" onClick={(e) => e.stopPropagation()} >
+                  <button onClick={() => { setIsEditing(f.id); setFormData(f); }} className="p-2 hover:bg-white/10 rounded-lg text-white/60 hover:text-white"><Edit2 className="w-5 h-5" /></button>
+                  <button onClick={() => handleDelete('founding_team', f.id)} className="p-2 hover:bg-red-400/20 rounded-lg text-white/60 hover:text-red-400"><Trash2 className="w-5 h-5" /></button>
                 </div>
               </div>
             ))}
@@ -677,6 +778,9 @@ export default function AdminDashboard() {
                 </div>
               </div>
             ))}
+            {activeTab === 'volunteers' && volunteers.length === 0 && (
+              <p className="text-white/40 text-sm py-8 text-center">No volunteers found. Add one to get started.</p>
+            )}
           </div>
         )}
       </main>

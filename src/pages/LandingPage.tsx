@@ -43,55 +43,38 @@ interface Volunteer {
   image_url: string;
 }
 
-const FOUNDING_MEMBERS = [
-  {
-    name: "Khant Min Nyo (Lucius)",
-    role: "Community Leader, Business Strategist, Front-end Developer",
-    image: "/assets/founders/individual/khant_min_nyo.png"
-  },
-  {
-    name: "Min Thu Khaing",
-    role: "Head of Planning, Backend Developer",
-    image: "/assets/founders/individual/min_thu_khaing.png"
-  },
-  {
-    name: "Sai Wanna Htun",
-    role: "Head of Project, Backend Developer",
-    image: "/assets/founders/individual/sai_wanna_htun.png"
-  },
-  {
-    name: "Han Thi Moe (De Dee)",
-    role: "Head of Creative Design, Frontend Developer",
-    image: "/assets/founders/individual/han_thi_moe.png"
-  },
-  {
-    name: "Shoon Lae Lae Htun",
-    role: "Head of Engagement & Marketing",
-    image: "/assets/founders/individual/shoon_lae_lae_htun.png"
-  }
-];
+interface FoundingTeamMember {
+  id: string;
+  name: string;
+  role: string;
+  image_url: string;
+  active: boolean;
+}
 
 export default function LandingPage() {
   const [events, setEvents] = useState<Event[]>([]);
   const [highlights, setHighlights] = useState<Highlight[]>([]);
   const [coCreators, setCoCreators] = useState<CoCreator[]>([]);
   const [volunteers, setVolunteers] = useState<Volunteer[]>([]);
+  const [foundingTeam, setFoundingTeam] = useState<FoundingTeamMember[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const [eventsData, highlightsData, creatorsData, volunteersData] = await Promise.all([
+        const [eventsData, highlightsData, creatorsData, volunteersData, foundersData] = await Promise.all([
           supabase.from('events').select('*').eq('archived', false).order('created_at', { ascending: false }),
           supabase.from('highlights').select('*').order('num', { ascending: true }),
           supabase.from('co_creators').select('*').order('created_at', { ascending: true }),
-          supabase.from('volunteers').select('*').order('created_at', { ascending: true })
+          supabase.from('volunteers').select('*').order('created_at', { ascending: true }),
+          supabase.from('founding_team').select('*').order('sort_order', { ascending: true })
         ]);
 
         if (eventsData.data && eventsData.data.length > 0) setEvents(eventsData.data as Event[]);
         if (highlightsData.data && highlightsData.data.length > 0) setHighlights(highlightsData.data as Highlight[]);
         if (creatorsData.data && creatorsData.data.length > 0) setCoCreators(creatorsData.data as CoCreator[]);
         if (volunteersData.data && volunteersData.data.length > 0) setVolunteers(volunteersData.data as Volunteer[]);
+        if (foundersData.data && foundersData.data.length > 0) setFoundingTeam(foundersData.data as FoundingTeamMember[]);
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -465,18 +448,18 @@ export default function LandingPage() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-24">
-              {FOUNDING_MEMBERS.map((member, i) => (
+              {foundingTeam.map((member, i) => (
                 <motion.div
-                  key={i}
+                  key={member.id}
                   initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
+                  whileInView={{ opacity: member.active ? 1 : 0.6, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: i * 0.1 }}
                   className="glass rounded-2xl overflow-hidden group flex flex-col"
                 >
                   <div className="aspect-[3/4] overflow-hidden">
                     <img
-                      src={member.image}
+                      src={member.image_url}
                       alt={member.name}
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                     />
