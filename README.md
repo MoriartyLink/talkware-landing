@@ -112,4 +112,4 @@ See `CONTRIBUTING.md` for the contribution workflow, coding standards, and pull 
 
 ## License
 
-BSD-3-Clause
+MIT
