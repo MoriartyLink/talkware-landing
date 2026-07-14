@@ -7,3 +7,4 @@ coverage/
 .env*
 !.env.example
 .copilot-specs-cache/
+INSTRUCTION.md

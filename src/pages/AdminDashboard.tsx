@@ -1,8 +1,24 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
-import { Plus, Trash2, Edit2, LogOut, LayoutDashboard, Calendar, Trophy, Users as UsersIcon, Upload, Save, X, ExternalLink, User, Image, Video, Sparkles, Zap, Gamepad2, Archive, ArchiveRestore } from "lucide-react";
+import { Plus, Trash2, Edit2, LogOut, LayoutDashboard, Calendar, Trophy, Users as UsersIcon, Upload, Save, X, User, Image, Video, Sparkles, Zap, Gamepad2, Archive, ArchiveRestore } from "lucide-react";
 
-type Tab = 'events' | 'highlights' | 'co_creators' | 'volunteers' | 'founders';
+type Tab = 'events' | 'highlights' | 'contributors';
+type ContributorTag = string;
+
+const CONTRIBUTOR_TAGS: { value: ContributorTag; label: string }[] = [
+  { value: 'founding_team', label: 'Founding Team' },
+  { value: 'co_creator', label: 'Co-Creator' },
+  { value: 'volunteer', label: 'Volunteer' },
+  { value: 'website_contributor', label: 'Website Contributor' },
+];
+
+const CONTRIBUTOR_TAG_LABELS = CONTRIBUTOR_TAGS.reduce<Record<string, string>>((labels, tag) => {
+  labels[tag.value] = tag.label;
+  return labels;
+}, {});
+
+const formatContributorTag = (tag: string) =>
+  CONTRIBUTOR_TAG_LABELS[tag] || tag.replace(/[_-]+/g, ' ').replace(/\b\w/g, char => char.toUpperCase());
 
 export default function AdminDashboard() {
   const [session, setSession] = useState<any>(null);
@@ -14,14 +30,13 @@ export default function AdminDashboard() {
   // Data state
   const [events, setEvents] = useState<any[]>([]);
   const [highlights, setHighlights] = useState<any[]>([]);
-  const [coCreators, setCoCreators] = useState<any[]>([]);
-  const [volunteers, setVolunteers] = useState<any[]>([]);
-  const [founders, setFounders] = useState<any[]>([]);
+  const [contributors, setContributors] = useState<any[]>([]);
   
   // Form state
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [formData, setFormData] = useState<any>({});
   const [uploading, setUploading] = useState(false);
+  const [contributorFilter, setContributorFilter] = useState<'all' | ContributorTag>('all');
 
   // Event detail management state
   const [eventMedia, setEventMedia] = useState<any[]>([]);
@@ -30,6 +45,11 @@ export default function AdminDashboard() {
   const [newSectionItem, setNewSectionItem] = useState({ section_type: 'highlight', title: '', subtitle: '', description: '', icon: '' });
   const [loadingDetails, setLoadingDetails] = useState(false);
   // showArchived removed - 'archived' column doesn't exist in the database
+
+  const contributorTags = Array.from(new Set([
+    ...CONTRIBUTOR_TAGS.map(tag => tag.value),
+    ...contributors.map(contributor => contributor.tag).filter(Boolean),
+  ]));
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -48,22 +68,18 @@ export default function AdminDashboard() {
 
   async function fetchData() {
     try {
-      const [ev, hi, co, vo, fo] = await Promise.all([
+      const [ev, hi, contributorsRes] = await Promise.all([
         supabase.from('events').select('*').order('created_at', { ascending: false }),
         supabase.from('highlights').select('*').order('num', { ascending: false }),
-        supabase.from('co_creators').select('*').order('created_at', { ascending: true }),
-        supabase.from('volunteers').select('*').order('created_at', { ascending: true }),
-        supabase.from('founding_team').select('*').order('sort_order', { ascending: true })
+        supabase.from('contributors').select('*').order('sort_order', { ascending: true }).order('created_at', { ascending: true })
       ]);
 
-      if (ev.data && ev.data.length > 0) setEvents(ev.data);
-      if (hi.data && hi.data.length > 0) setHighlights(hi.data);
-      if (co.data && co.data.length > 0) setCoCreators(co.data);
-      if (vo.data && vo.data.length > 0) setVolunteers(vo.data);
-      if (fo.data && fo.data.length > 0) setFounders(fo.data);
+      setEvents(ev.data || []);
+      setHighlights(hi.data || []);
+      setContributors(contributorsRes.data || []);
 
       // Log any individual query errors
-      [ev, hi, co, vo, fo].forEach((result, index) => {
+      [ev, hi, contributorsRes].forEach((result, index) => {
         if (result.error) {
           console.error(`Error fetching data from query ${index}:`, result.error);
         }
@@ -82,7 +98,7 @@ export default function AdminDashboard() {
 
   const handleLogout = () => supabase.auth.signOut();
 
-  const getTableName = (tab: Tab) => tab === 'founders' ? 'founding_team' : tab;
+  const getTableName = (tab: Tab) => tab;
 
   const handleDelete = async (table: string, id: string) => {
     if (!confirm('Are you sure?')) return;
@@ -97,8 +113,8 @@ export default function AdminDashboard() {
     else fetchData();
   };
 
-  const handleToggleFounders = async (id: string, current: boolean) => {
-    const { error } = await supabase.from('founding_team').update({ active: !current }).eq('id', id);
+  const handleToggleContributor = async (id: string, current: boolean) => {
+    const { error } = await supabase.from('contributors').update({ active: !current }).eq('id', id);
     if (error) alert(error.message);
     else fetchData();
   };
@@ -111,6 +127,14 @@ export default function AdminDashboard() {
     const dataToSave = { ...formData };
     delete dataToSave.id;
     delete dataToSave.created_at;
+
+    if (activeTab === 'contributors') {
+      dataToSave.active = dataToSave.active ?? true;
+      dataToSave.tag = (dataToSave.tag || 'volunteer').trim();
+      dataToSave.joined_at = dataToSave.joined_at || new Date().toISOString().slice(0, 10);
+      dataToSave.sort_order = Number(dataToSave.sort_order || 0);
+      dataToSave.points = Number(dataToSave.points || 0);
+    }
 
     const { error } = isEditing && isEditing !== 'new'
       ? await supabase.from(table).update(dataToSave).eq('id', isEditing)
@@ -272,22 +296,10 @@ export default function AdminDashboard() {
             <Trophy className="w-5 h-5" /> Past Events
           </button>
           <button 
-            onClick={() => { setActiveTab('co_creators'); setIsEditing(null); }}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'co_creators' ? 'bg-white text-black' : 'hover:bg-white/5 text-white/60'}`}
+            onClick={() => { setActiveTab('contributors'); setIsEditing(null); }}
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'contributors' ? 'bg-white text-black' : 'hover:bg-white/5 text-white/60'}`}
           >
-            <UsersIcon className="w-5 h-5" /> Co-creators
-          </button>
-          <button 
-            onClick={() => { setActiveTab('volunteers'); setIsEditing(null); }}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'volunteers' ? 'bg-white text-black' : 'hover:bg-white/5 text-white/60'}`}
-          >
-            <UsersIcon className="w-5 h-5" /> Volunteers
-          </button>
-          <button 
-            onClick={() => { setActiveTab('founders'); setIsEditing(null); }}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'founders' ? 'bg-white text-black' : 'hover:bg-white/5 text-white/60'}`}
-          >
-            <UsersIcon className="w-5 h-5" /> Founding Team
+            <UsersIcon className="w-5 h-5" /> Contributors
           </button>
         </nav>
 
@@ -307,7 +319,18 @@ export default function AdminDashboard() {
           </div>
           {!isEditing && (
             <button 
-              onClick={() => { setIsEditing('new'); setFormData({}); setEventMedia([]); setEventSections([]); }}
+              onClick={() => {
+                setIsEditing('new');
+                setFormData(activeTab === 'contributors' ? {
+                  tag: 'volunteer',
+                  active: true,
+                  points: 0,
+                  joined_at: new Date().toISOString().slice(0, 10),
+                  sort_order: contributors.length,
+                } : {});
+                setEventMedia([]);
+                setEventSections([]);
+              }}
               className="flex items-center gap-2 px-6 py-3 bg-white text-black font-bold rounded-xl hover:bg-white/90 transition-all"
             >
               <Plus className="w-5 h-5" /> Add New
@@ -568,95 +591,101 @@ export default function AdminDashboard() {
                 </>
               )}
 
-              {activeTab === 'co_creators' && (
+              {activeTab === 'contributors' && (
                 <>
-                  <div>
-                    <label className="block text-xs font-bold text-white/40 mb-2 uppercase">Name</label>
-                    <input type="text" value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-white/30" required />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-white/40 mb-2 uppercase">Role</label>
-                    <input type="text" value={formData.role || ''} onChange={e => setFormData({...formData, role: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-white/30" required />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-white/40 mb-2 uppercase">Profile Image</label>
-                    <div className="flex items-center gap-4">
-                      {formData.image_url && (
-                        <img src={formData.image_url} alt="Preview" className="w-16 h-16 rounded-full object-cover border-2 border-white/10" />
-                      )}
-                      <label className="flex-1 cursor-pointer">
-                        <div className="w-full py-4 border-2 border-dashed border-white/10 rounded-xl flex items-center justify-center gap-2 hover:bg-white/5 transition-all text-white/40">
-                          <Upload className="w-5 h-5" />
-                          {uploading ? 'Uploading...' : 'Click to Upload'}
-                        </div>
-                        <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'co-creators')} />
-                      </label>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-white/40 mb-2 uppercase">Name</label>
+                      <input type="text" value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-white/30" required />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-white/40 mb-2 uppercase">Role</label>
+                      <input type="text" value={formData.role || ''} onChange={e => setFormData({...formData, role: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-white/30" required />
                     </div>
                   </div>
-                </>
-              )}
-
-              {activeTab === 'volunteers' && (
-                <>
-                  <div>
-                    <label className="block text-xs font-bold text-white/40 mb-2 uppercase">Name</label>
-                    <input type="text" value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-white/30" required />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-white/40 mb-2 uppercase">Role</label>
-                    <input type="text" value={formData.role || ''} onChange={e => setFormData({...formData, role: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-white/30" required />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-white/40 mb-2 uppercase">Profile Image</label>
-                    <div className="flex items-center gap-4">
-                      {formData.image_url && (
-                        <img src={formData.image_url} alt="Preview" className="w-16 h-16 rounded-full object-cover border-2 border-white/10" />
-                      )}
-                      <label className="flex-1 cursor-pointer">
-                        <div className="w-full py-4 border-2 border-dashed border-white/10 rounded-xl flex items-center justify-center gap-2 hover:bg-white/5 transition-all text-white/40">
-                          <Upload className="w-5 h-5" />
-                          {uploading ? 'Uploading...' : 'Click to Upload'}
-                        </div>
-                        <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'volunteers')} />
-                      </label>
+                  <div className="grid md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-white/40 mb-2 uppercase">Tag</label>
+                      <input
+                        type="text"
+                        list="contributor-tags"
+                        value={formData.tag || ''}
+                        onChange={e => setFormData({...formData, tag: e.target.value})}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-white/30"
+                        placeholder="volunteer"
+                        required
+                      />
+                      <datalist id="contributor-tags">
+                        {contributorTags.map(tag => (
+                          <option key={tag} value={tag}>{formatContributorTag(tag)}</option>
+                        ))}
+                      </datalist>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-white/40 mb-2 uppercase">Joined Date</label>
+                      <input type="date" value={formData.joined_at || ''} onChange={e => setFormData({...formData, joined_at: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-white/30" required />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-white/40 mb-2 uppercase">Sort Order</label>
+                      <input type="number" value={formData.sort_order ?? 0} onChange={e => setFormData({...formData, sort_order: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-white/30" />
                     </div>
                   </div>
-                </>
-              )}
-
-              {activeTab === 'founders' && (
-                <>
                   <div>
-                    <label className="block text-xs font-bold text-white/40 mb-2 uppercase">Name</label>
-                    <input type="text" value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-white/30" required />
+                    <label className="block text-xs font-bold text-white/40 mb-2 uppercase">Contribution Points</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formData.points ?? 0}
+                      onChange={e => setFormData({...formData, points: e.target.value})}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-white/30"
+                    />
                   </div>
-                  <div>
-                    <label className="block text-xs font-bold text-white/40 mb-2 uppercase">Role</label>
-                    <input type="text" value={formData.role || ''} onChange={e => setFormData({...formData, role: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-white/30" required />
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-white/40 mb-2 uppercase">GitHub URL</label>
+                      <input
+                        type="url"
+                        value={formData.github_url || ''}
+                        onChange={e => setFormData({...formData, github_url: e.target.value})}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-white/30"
+                        placeholder="https://github.com/username"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-white/40 mb-2 uppercase">LinkedIn URL</label>
+                      <input
+                        type="url"
+                        value={formData.linkedin_url || ''}
+                        onChange={e => setFormData({...formData, linkedin_url: e.target.value})}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-white/30"
+                        placeholder="https://www.linkedin.com/in/username"
+                      />
+                    </div>
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-white/40 mb-2 uppercase">Profile Image</label>
                     <div className="flex items-center gap-4">
                       {formData.image_url && (
-                        <img src={formData.image_url} alt="Preview" className="w-16 h-16 rounded-full object-cover border-2 border-white/10" />
+                        <img src={formData.image_url} alt="Preview" className="w-16 h-20 rounded-xl object-cover border-2 border-white/10" />
                       )}
                       <label className="flex-1 cursor-pointer">
                         <div className="w-full py-4 border-2 border-dashed border-white/10 rounded-xl flex items-center justify-center gap-2 hover:bg-white/5 transition-all text-white/40">
                           <Upload className="w-5 h-5" />
                           {uploading ? 'Uploading...' : 'Click to Upload'}
                         </div>
-                        <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'founders')} />
+                        <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'contributors')} />
                       </label>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
                     <input 
-                      id="founders-active" 
+                      id="contributor-active" 
                       type="checkbox" 
-                      checked={!!formData.active} 
-                      onChange={e => setFormData({...formData, active: e.target.checked})}                      className="w-4 h-4 rounded border-white/20 bg-white/5 text-white focus:ring-white/30"
+                      checked={formData.active ?? true} 
+                      onChange={e => setFormData({...formData, active: e.target.checked})}
+                      className="w-4 h-4 rounded border-white/20 bg-white/5 text-white focus:ring-white/30"
                     />
-                    <label htmlFor="founders-active" className="text-sm text-white/60">Active</label>
+                    <label htmlFor="contributor-active" className="text-sm text-white/60">Active</label>
                   </div>
                 </>
               )}
@@ -711,75 +740,61 @@ export default function AdminDashboard() {
               </div>
             ))}
 
-            {activeTab === 'co_creators' && coCreators.length === 0 && (
-              <p className="text-white/40 text-sm py-8 text-center">No co-creators found. Add one to get started.</p>
-            )}
-            {activeTab === 'co_creators' && coCreators.map(co => (
-              <div key={co.id} className="glass p-4 rounded-2xl flex items-center justify-between border border-white/5 hover:border-white/20 transition-all group">
-                <div className="flex items-center gap-4">
-                  {co.image_url ? (
-                    <img src={co.image_url} className="w-12 h-12 rounded-full object-cover" alt="" />
-                  ) : (
-                    <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-white/40"><User className="w-5 h-5" /></div>
-                  )}
-                  <div>
-                    <h4 className="font-bold">{co.name}</h4>
-                    <p className="text-white/40 text-xs uppercase tracking-widest">{co.role}</p>
-                  </div>
+            {activeTab === 'contributors' && (
+              <>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
+                  <p className="text-white/40 text-sm">{contributors.length} contributors in the unified people table.</p>
+                  <select
+                    value={contributorFilter}
+                    onChange={(e) => setContributorFilter(e.target.value as 'all' | ContributorTag)}
+                    className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-white/30"
+                  >
+                    <option value="all">All tags</option>
+                    {contributorTags.map(tag => (
+                      <option key={tag} value={tag}>{formatContributorTag(tag)}</option>
+                    ))}
+                  </select>
                 </div>
-                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                  <button onClick={() => { setIsEditing(co.id); setFormData(co); }} className="p-2 hover:bg-white/10 rounded-lg text-white/60 hover:text-white"><Edit2 className="w-5 h-5" /></button>
-                  <button onClick={() => handleDelete('co_creators', co.id)} className="p-2 hover:bg-red-400/20 rounded-lg text-white/60 hover:text-red-400"><Trash2 className="w-5 h-5" /></button>
-                </div>
-              </div>
-            ))}
 
-            {activeTab === 'founders' && founders.length === 0 && (
-              <p className="text-white/40 text-sm py-8 text-center">No founding team members found. Add one to get started.</p>
-            )}
-            {activeTab === 'founders' && founders.map(f => (
-              <div 
-                key={f.id} 
-                onClick={() => handleToggleFounders(f.id, f.active)}                className={`glass p-4 rounded-2xl flex items-center justify-between border transition-all group cursor-pointer ${!f.active ? 'border-white/5 opacity-60' : 'border-white/5 hover:border-white/20'}`}              >
-                <div className="flex items-center gap-4">
-                  {f.image_url ? (
-                    <img src={f.image_url} className="w-12 h-12 rounded-full object-cover" alt="" />
-                  ) : (
-                    <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-white/40"><User className="w-5 h-5" /></div>
-                  )}
-                  <div>
-                    <h4 className="font-bold">{f.name}</h4>
-                    <p className="text-white/40 text-xs uppercase tracking-widest">{f.role}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all" onClick={(e) => e.stopPropagation()} >
-                  <button onClick={() => { setIsEditing(f.id); setFormData(f); }} className="p-2 hover:bg-white/10 rounded-lg text-white/60 hover:text-white"><Edit2 className="w-5 h-5" /></button>
-                  <button onClick={() => handleDelete('founding_team', f.id)} className="p-2 hover:bg-red-400/20 rounded-lg text-white/60 hover:text-red-400"><Trash2 className="w-5 h-5" /></button>
-                </div>
-              </div>
-            ))}
+                {contributors.filter(c => contributorFilter === 'all' || c.tag === contributorFilter).length === 0 && (
+                  <p className="text-white/40 text-sm py-8 text-center">No contributors found. Add one to get started.</p>
+                )}
 
-            {activeTab === 'volunteers' && volunteers.map(vo => (
-              <div key={vo.id} className="glass p-4 rounded-2xl flex items-center justify-between border border-white/5 hover:border-white/20 transition-all group">
-                <div className="flex items-center gap-4">
-                  {vo.image_url ? (
-                    <img src={vo.image_url} className="w-12 h-12 rounded-full object-cover" alt="" />
-                  ) : (
-                    <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-white/40"><User className="w-5 h-5" /></div>
-                  )}
-                  <div>
-                    <h4 className="font-bold">{vo.name}</h4>
-                    <p className="text-white/40 text-xs uppercase tracking-widest">{vo.role}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                  <button onClick={() => { setIsEditing(vo.id); setFormData(vo); }} className="p-2 hover:bg-white/10 rounded-lg text-white/60 hover:text-white"><Edit2 className="w-5 h-5" /></button>
-                  <button onClick={() => handleDelete('volunteers', vo.id)} className="p-2 hover:bg-red-400/20 rounded-lg text-white/60 hover:text-red-400"><Trash2 className="w-5 h-5" /></button>
-                </div>
-              </div>
-            ))}
-            {activeTab === 'volunteers' && volunteers.length === 0 && (
-              <p className="text-white/40 text-sm py-8 text-center">No volunteers found. Add one to get started.</p>
+                {contributors
+                  .filter(c => contributorFilter === 'all' || c.tag === contributorFilter)
+                  .map(contributor => (
+                    <div
+                      key={contributor.id}
+                      onClick={() => handleToggleContributor(contributor.id, contributor.active)}
+                      className={`glass p-4 rounded-2xl flex items-center justify-between border transition-all group cursor-pointer ${contributor.active ? 'border-white/5 hover:border-white/20' : 'border-white/5 opacity-60'}`}
+                    >
+                      <div className="flex items-center gap-4 min-w-0">
+                        {contributor.image_url ? (
+                          <img src={contributor.image_url} className="w-12 h-14 rounded-xl object-cover flex-shrink-0" alt="" />
+                        ) : (
+                          <div className="w-12 h-14 rounded-xl bg-white/10 flex items-center justify-center text-white/40 flex-shrink-0"><User className="w-5 h-5" /></div>
+                        )}
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="font-bold truncate">{contributor.name}</h4>
+                            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${contributor.active ? 'bg-emerald-400 animate-pulse' : 'bg-white/30'}`} />
+                          </div>
+                          <p className="text-white/40 text-xs uppercase tracking-widest truncate">{contributor.role}</p>
+                          <div className="flex flex-wrap items-center gap-2 mt-2 text-[10px] font-bold uppercase tracking-widest text-white/30">
+                            <span>{formatContributorTag(contributor.tag)}</span>
+                            <span>Joined {contributor.joined_at || 'Unknown'}</span>
+                            <span>{contributor.points ?? 0} pts</span>
+                            <span>Order {contributor.sort_order ?? 0}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all" onClick={(e) => e.stopPropagation()}>
+                        <button onClick={() => { setIsEditing(contributor.id); setFormData(contributor); }} className="p-2 hover:bg-white/10 rounded-lg text-white/60 hover:text-white"><Edit2 className="w-5 h-5" /></button>
+                        <button onClick={() => handleDelete('contributors', contributor.id)} className="p-2 hover:bg-red-400/20 rounded-lg text-white/60 hover:text-red-400"><Trash2 className="w-5 h-5" /></button>
+                      </div>
+                    </div>
+                  ))}
+              </>
             )}
           </div>
         )}
