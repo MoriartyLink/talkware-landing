@@ -40,27 +40,25 @@ interface Contributor {
   active: boolean;
   joined_at: string;
   points?: number;
-  sort_order?: number;
 }
 
-const TAG_LABELS: Record<string, string> = {
-  founding_team: 'Founding Team',
-  co_creator: 'Co-Creator',
-  volunteer: 'Volunteer',
-  website_contributor: 'Website Contributor',
-};
+interface ContributorTag {
+  value: string;
+  label: string;
+  color: string;
+}
 
-const TAG_COLORS: Record<string, string> = {
-  founding_team: 'from-amber-500/20 to-orange-500/20 text-amber-300 border-amber-500/30',
-  co_creator: 'from-violet-500/20 to-purple-500/20 text-violet-300 border-violet-500/30',
-  volunteer: 'from-emerald-500/20 to-green-500/20 text-emerald-300 border-emerald-500/30',
-  website_contributor: 'from-sky-500/20 to-blue-500/20 text-sky-300 border-sky-500/30',
-};
+const DEFAULT_TAGS: ContributorTag[] = [
+  { value: 'founding_team', label: 'Founding Team', color: '#f59e0b' },
+  { value: 'co_creator', label: 'Co-Creator', color: '#8b5cf6' },
+  { value: 'volunteer', label: 'Volunteer', color: '#34d399' },
+  { value: 'website_contributor', label: 'Website Contributor', color: '#38bdf8' },
+];
 
-const DEFAULT_TAG_COLOR = 'from-white/10 to-white/5 text-white/70 border-white/15';
+const DEFAULT_TAG_COLOR = '#94a3b8';
 
 const formatContributorTag = (tag: string) =>
-  TAG_LABELS[tag] || tag.replace(/[_-]+/g, ' ').replace(/\b\w/g, char => char.toUpperCase());
+  tag.replace(/[_-]+/g, ' ').replace(/\b\w/g, char => char.toUpperCase());
 
 const isCommunityLead = (tag: string) => {
   const normalized = tag.toLowerCase().replace(/[\s-]+/g, '_');
@@ -82,6 +80,7 @@ export default function LandingPage() {
   const [events, setEvents] = useState<Event[]>([]);
   const [highlights, setHighlights] = useState<Highlight[]>([]);
   const [contributors, setContributors] = useState<Contributor[]>([]);
+  const [contributorTags, setContributorTags] = useState<ContributorTag[]>(DEFAULT_TAGS);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<string>('all');
   const [openContributorId, setOpenContributorId] = useState<string | null>(null);
@@ -92,12 +91,14 @@ export default function LandingPage() {
         const [eventsData, highlightsData, contributorsData] = await Promise.all([
           supabase.from('events').select('*').eq('archived', false).order('created_at', { ascending: false }),
           supabase.from('highlights').select('*').order('num', { ascending: true }),
-          supabase.from('contributors').select('*').order('sort_order', { ascending: true }).order('created_at', { ascending: true })
+          supabase.from('contributors').select('*').order('points', { ascending: false }).order('created_at', { ascending: true })
         ]);
+        const tagsData = await supabase.from('contributor_tags').select('*').order('label', { ascending: true });
 
         if (eventsData.data && eventsData.data.length > 0) setEvents(eventsData.data as Event[]);
         if (highlightsData.data && highlightsData.data.length > 0) setHighlights(highlightsData.data as Highlight[]);
         if (contributorsData.data && contributorsData.data.length > 0) setContributors(contributorsData.data as Contributor[]);
+        if (tagsData.data && tagsData.data.length > 0) setContributorTags(tagsData.data as ContributorTag[]);
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -144,8 +145,10 @@ export default function LandingPage() {
   const sortedVisibleContributors = [...visibleContributors].sort((a, b) => {
     const pointDiff = (b.points || 0) - (a.points || 0);
     if (pointDiff !== 0) return pointDiff;
-    return (a.sort_order || 0) - (b.sort_order || 0);
+    return a.name.localeCompare(b.name);
   });
+  const getContributorTag = (tag: string) =>
+    contributorTags.find(option => option.value === tag) || { value: tag, label: formatContributorTag(tag), color: DEFAULT_TAG_COLOR };
 
   const displayHighlights = highlights.length > 0 ? highlights : [
     {
@@ -517,6 +520,7 @@ export default function LandingPage() {
                 {sortedVisibleContributors
                   .map((contributor, i) => {
                     const contributionTone = getContributionTone(contributor.points, maxContributionPoints);
+                    const tag = getContributorTag(contributor.tag);
                     const isOpen = openContributorId === contributor.id;
                     return (
                       <motion.div
@@ -543,12 +547,12 @@ export default function LandingPage() {
                         }}
                       >
                         {/* Image */}
-                        <div className={`aspect-[4/5] overflow-hidden ${contributor.active ? '' : 'opacity-[0.45] grayscale'}`}>
+                        <div className={`aspect-square overflow-hidden bg-white/[0.03] ${contributor.active ? '' : 'opacity-[0.45] grayscale'}`}>
                           {contributor.image_url ? (
                             <img
                               src={contributor.image_url}
                               alt={contributor.name}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                              className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700"
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center bg-white/5">
@@ -560,8 +564,15 @@ export default function LandingPage() {
                         {/* Info */}
                         <div className={`p-3 flex-1 flex flex-col gap-2 ${contributor.active ? '' : 'opacity-[0.45]'}`}>
                           {/* Tag badge */}
-                          <div className={`self-start inline-flex px-2 py-0.5 rounded-md text-[8px] font-bold uppercase tracking-wider bg-gradient-to-r border ${TAG_COLORS[contributor.tag] || DEFAULT_TAG_COLOR}`}>
-                            {formatContributorTag(contributor.tag)}
+                          <div
+                            className="self-start inline-flex px-2 py-0.5 rounded-md border text-[8px] font-bold uppercase tracking-wider"
+                            style={{
+                              borderColor: tag.color,
+                              backgroundColor: `${tag.color}22`,
+                              color: tag.color,
+                            }}
+                          >
+                            {tag.label}
                           </div>
 
                           <h3 className="font-display font-bold text-xs leading-tight">{contributor.name}</h3>

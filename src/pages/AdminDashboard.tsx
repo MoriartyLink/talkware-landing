@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
-import { Plus, Trash2, Edit2, LogOut, LayoutDashboard, Calendar, Trophy, Users as UsersIcon, Upload, Save, X, User, Image, Video, Sparkles, Zap, Gamepad2, Archive, ArchiveRestore } from "lucide-react";
+import { Plus, Trash2, Edit2, LogOut, LayoutDashboard, Calendar, Trophy, Users as UsersIcon, Upload, Save, X, User, Image, Video, Sparkles, Zap, Gamepad2, Archive, ArchiveRestore, Palette } from "lucide-react";
 
 type Tab = 'events' | 'highlights' | 'contributors';
 type ContributorTag = string;
@@ -12,13 +12,64 @@ const CONTRIBUTOR_TAGS: { value: ContributorTag; label: string }[] = [
   { value: 'website_contributor', label: 'Website Contributor' },
 ];
 
-const CONTRIBUTOR_TAG_LABELS = CONTRIBUTOR_TAGS.reduce<Record<string, string>>((labels, tag) => {
+const DEFAULT_TAG_COLOR = '#34d399';
+
+const DEFAULT_CONTRIBUTOR_TAGS = CONTRIBUTOR_TAGS.map(tag => ({
+  ...tag,
+  color: tag.value === 'founding_team'
+    ? '#f59e0b'
+    : tag.value === 'co_creator'
+      ? '#8b5cf6'
+      : tag.value === 'website_contributor'
+        ? '#38bdf8'
+        : DEFAULT_TAG_COLOR,
+}));
+
+const CONTRIBUTOR_TAG_LABELS = DEFAULT_CONTRIBUTOR_TAGS.reduce<Record<string, string>>((labels, tag) => {
   labels[tag.value] = tag.label;
   return labels;
 }, {});
 
+const slugifyTag = (value: string) =>
+  value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+
 const formatContributorTag = (tag: string) =>
   CONTRIBUTOR_TAG_LABELS[tag] || tag.replace(/[_-]+/g, ' ').replace(/\b\w/g, char => char.toUpperCase());
+
+const cropImageToSquare = async (file: File, size = 900) => {
+  const imageUrl = URL.createObjectURL(file);
+  const image = new window.Image();
+  image.src = imageUrl;
+  await new Promise<void>((resolve, reject) => {
+    image.onload = () => resolve();
+    image.onerror = () => reject(new Error('Unable to load image for cropping.'));
+  });
+
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const context = canvas.getContext('2d');
+  if (!context) {
+    URL.revokeObjectURL(imageUrl);
+    throw new Error('Unable to crop image in this browser.');
+  }
+
+  const sourceSize = Math.min(image.naturalWidth, image.naturalHeight);
+  const sourceX = (image.naturalWidth - sourceSize) / 2;
+  const sourceY = (image.naturalHeight - sourceSize) / 2;
+  context.drawImage(image, sourceX, sourceY, sourceSize, sourceSize, 0, 0, size, size);
+  URL.revokeObjectURL(imageUrl);
+
+  const blob = await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(result => {
+      if (result) resolve(result);
+      else reject(new Error('Unable to export cropped image.'));
+    }, 'image/jpeg', 0.9);
+  });
+
+  const fileName = file.name.replace(/\.[^.]+$/, '') || 'contributor';
+  return new File([blob], `${fileName}.jpg`, { type: 'image/jpeg' });
+};
 
 export default function AdminDashboard() {
   const [session, setSession] = useState<any>(null);
@@ -31,12 +82,15 @@ export default function AdminDashboard() {
   const [events, setEvents] = useState<any[]>([]);
   const [highlights, setHighlights] = useState<any[]>([]);
   const [contributors, setContributors] = useState<any[]>([]);
+  const [contributorTagOptions, setContributorTagOptions] = useState<any[]>(DEFAULT_CONTRIBUTOR_TAGS);
   
   // Form state
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [formData, setFormData] = useState<any>({});
   const [uploading, setUploading] = useState(false);
   const [contributorFilter, setContributorFilter] = useState<'all' | ContributorTag>('all');
+  const [tagForm, setTagForm] = useState({ value: '', label: '', color: DEFAULT_TAG_COLOR });
+  const [editingTag, setEditingTag] = useState<string | null>(null);
 
   // Event detail management state
   const [eventMedia, setEventMedia] = useState<any[]>([]);
@@ -47,9 +101,15 @@ export default function AdminDashboard() {
   // showArchived removed - 'archived' column doesn't exist in the database
 
   const contributorTags = Array.from(new Set([
-    ...CONTRIBUTOR_TAGS.map(tag => tag.value),
+    ...contributorTagOptions.map(tag => tag.value),
     ...contributors.map(contributor => contributor.tag).filter(Boolean),
   ]));
+  const contributorTagMeta = contributorTags.map(tag => {
+    const savedTag = contributorTagOptions.find(option => option.value === tag);
+    return savedTag || { value: tag, label: formatContributorTag(tag), color: DEFAULT_TAG_COLOR };
+  });
+  const getContributorTag = (tag: string) =>
+    contributorTagOptions.find(option => option.value === tag) || { value: tag, label: formatContributorTag(tag), color: DEFAULT_TAG_COLOR };
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -71,15 +131,19 @@ export default function AdminDashboard() {
       const [ev, hi, contributorsRes] = await Promise.all([
         supabase.from('events').select('*').order('created_at', { ascending: false }),
         supabase.from('highlights').select('*').order('num', { ascending: false }),
-        supabase.from('contributors').select('*').order('sort_order', { ascending: true }).order('created_at', { ascending: true })
+        supabase.from('contributors').select('*').order('points', { ascending: false }).order('created_at', { ascending: true })
       ]);
+      const tagsRes = await supabase.from('contributor_tags').select('*').order('label', { ascending: true });
 
       setEvents(ev.data || []);
       setHighlights(hi.data || []);
       setContributors(contributorsRes.data || []);
+      if (tagsRes.data && tagsRes.data.length > 0) {
+        setContributorTagOptions(tagsRes.data);
+      }
 
       // Log any individual query errors
-      [ev, hi, contributorsRes].forEach((result, index) => {
+      [ev, hi, contributorsRes, tagsRes].forEach((result, index) => {
         if (result.error) {
           console.error(`Error fetching data from query ${index}:`, result.error);
         }
@@ -130,9 +194,8 @@ export default function AdminDashboard() {
 
     if (activeTab === 'contributors') {
       dataToSave.active = dataToSave.active ?? true;
-      dataToSave.tag = (dataToSave.tag || 'volunteer').trim();
+      dataToSave.tag = slugifyTag(dataToSave.tag || 'volunteer');
       dataToSave.joined_at = dataToSave.joined_at || new Date().toISOString().slice(0, 10);
-      dataToSave.sort_order = Number(dataToSave.sort_order || 0);
       dataToSave.points = Number(dataToSave.points || 0);
     }
 
@@ -152,26 +215,73 @@ export default function AdminDashboard() {
     }
   };
 
+  const resetTagForm = () => {
+    setEditingTag(null);
+    setTagForm({ value: '', label: '', color: DEFAULT_TAG_COLOR });
+  };
+
+  const handleSaveTag = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const value = slugifyTag(tagForm.value);
+    if (!value) {
+      alert('Tag value is required.');
+      return;
+    }
+
+    const payload = {
+      value,
+      label: tagForm.label.trim() || formatContributorTag(value),
+      color: tagForm.color || DEFAULT_TAG_COLOR,
+    };
+
+    const { error } = editingTag
+      ? await supabase.from('contributor_tags').update(payload).eq('value', editingTag)
+      : await supabase.from('contributor_tags').insert([payload]);
+
+    if (error) {
+      alert(error.message);
+    } else {
+      resetTagForm();
+      fetchData();
+    }
+  };
+
+  const handleDeleteTag = async (value: string) => {
+    if (!confirm('Delete this tag? Existing contributors with this tag will keep the tag text.')) return;
+    const { error } = await supabase.from('contributor_tags').delete().eq('value', value);
+    if (error) alert(error.message);
+    else fetchData();
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, folder: string) => {
-    const file = e.target.files?.[0];
+    let file = e.target.files?.[0];
     if (!file) return;
 
     setUploading(true);
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Math.random()}.${fileExt}`;
-    const filePath = `${folder}/${fileName}`;
+    try {
+      if (folder === 'contributors') {
+        file = await cropImageToSquare(file);
+      }
 
-    const { error: uploadError } = await supabase.storage
-      .from('assets')
-      .upload(filePath, file);
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `${folder}/${fileName}`;
 
-    if (uploadError) {
-      alert(uploadError.message);
-    } else {
-      const { data } = supabase.storage.from('assets').getPublicUrl(filePath);
-      setFormData({ ...formData, image_url: data.publicUrl });
+      const { error: uploadError } = await supabase.storage
+        .from('assets')
+        .upload(filePath, file);
+
+      if (uploadError) {
+        alert(uploadError.message);
+      } else {
+        const { data } = supabase.storage.from('assets').getPublicUrl(filePath);
+        setFormData({ ...formData, image_url: data.publicUrl });
+      }
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to prepare image for upload.');
+    } finally {
+      setUploading(false);
     }
-    setUploading(false);
   };
 
   // Event detail management functions
@@ -326,7 +436,6 @@ export default function AdminDashboard() {
                   active: true,
                   points: 0,
                   joined_at: new Date().toISOString().slice(0, 10),
-                  sort_order: contributors.length,
                 } : {});
                 setEventMedia([]);
                 setEventSections([]);
@@ -603,7 +712,7 @@ export default function AdminDashboard() {
                       <input type="text" value={formData.role || ''} onChange={e => setFormData({...formData, role: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-white/30" required />
                     </div>
                   </div>
-                  <div className="grid md:grid-cols-3 gap-4">
+                  <div className="grid md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-bold text-white/40 mb-2 uppercase">Tag</label>
                       <input
@@ -616,18 +725,14 @@ export default function AdminDashboard() {
                         required
                       />
                       <datalist id="contributor-tags">
-                        {contributorTags.map(tag => (
-                          <option key={tag} value={tag}>{formatContributorTag(tag)}</option>
+                        {contributorTagMeta.map(tag => (
+                          <option key={tag.value} value={tag.value}>{tag.label}</option>
                         ))}
                       </datalist>
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-white/40 mb-2 uppercase">Joined Date</label>
                       <input type="date" value={formData.joined_at || ''} onChange={e => setFormData({...formData, joined_at: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-white/30" required />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-white/40 mb-2 uppercase">Sort Order</label>
-                      <input type="number" value={formData.sort_order ?? 0} onChange={e => setFormData({...formData, sort_order: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-white/30" />
                     </div>
                   </div>
                   <div>
@@ -666,7 +771,7 @@ export default function AdminDashboard() {
                     <label className="block text-xs font-bold text-white/40 mb-2 uppercase">Profile Image</label>
                     <div className="flex items-center gap-4">
                       {formData.image_url && (
-                        <img src={formData.image_url} alt="Preview" className="w-16 h-20 rounded-xl object-cover border-2 border-white/10" />
+                        <img src={formData.image_url} alt="Preview" className="w-20 aspect-square rounded-xl object-cover object-center border-2 border-white/10" />
                       )}
                       <label className="flex-1 cursor-pointer">
                         <div className="w-full py-4 border-2 border-dashed border-white/10 rounded-xl flex items-center justify-center gap-2 hover:bg-white/5 transition-all text-white/40">
@@ -743,17 +848,93 @@ export default function AdminDashboard() {
             {activeTab === 'contributors' && (
               <>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
-                  <p className="text-white/40 text-sm">{contributors.length} contributors in the unified people table.</p>
+                  <p className="text-white/40 text-sm">{contributors.length} contributors sorted by contribution points.</p>
                   <select
                     value={contributorFilter}
                     onChange={(e) => setContributorFilter(e.target.value as 'all' | ContributorTag)}
                     className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-white/30"
                   >
                     <option value="all">All tags</option>
-                    {contributorTags.map(tag => (
-                      <option key={tag} value={tag}>{formatContributorTag(tag)}</option>
+                    {contributorTagMeta.map(tag => (
+                      <option key={tag.value} value={tag.value}>{tag.label}</option>
                     ))}
                   </select>
+                </div>
+
+                <div className="glass rounded-2xl border border-white/5 p-4 mb-4">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Palette className="w-4 h-4 text-white/50" />
+                    <h3 className="text-sm font-bold uppercase tracking-widest text-white/60">Tags</h3>
+                  </div>
+                  <form onSubmit={handleSaveTag} className="grid gap-3 lg:grid-cols-[1fr_1fr_auto_auto] lg:items-end mb-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-white/40 uppercase mb-1">Value</label>
+                      <input
+                        type="text"
+                        value={tagForm.value}
+                        onChange={e => setTagForm({...tagForm, value: e.target.value})}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-white/30"
+                        placeholder="community_lead"
+                        disabled={!!editingTag}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-white/40 uppercase mb-1">Label</label>
+                      <input
+                        type="text"
+                        value={tagForm.label}
+                        onChange={e => setTagForm({...tagForm, label: e.target.value})}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-white/30"
+                        placeholder="Community Lead"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-white/40 uppercase mb-1">Color</label>
+                      <input
+                        type="color"
+                        value={tagForm.color}
+                        onChange={e => setTagForm({...tagForm, color: e.target.value})}
+                        className="h-10 w-full lg:w-16 cursor-pointer rounded-xl border border-white/10 bg-white/5 p-1"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <button type="submit" className="flex-1 lg:flex-none px-4 py-2 bg-white text-black rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-white/90">
+                        {editingTag ? 'Update' : 'Add'}
+                      </button>
+                      {editingTag && (
+                        <button type="button" onClick={resetTagForm} className="px-4 py-2 bg-white/10 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-white/15">
+                          Cancel
+                        </button>
+                      )}
+                    </div>
+                  </form>
+                  <div className="flex flex-wrap gap-2">
+                    {contributorTagMeta.map(tag => (
+                      <div key={tag.value} className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+                        <span className="h-3 w-3 rounded-full" style={{ backgroundColor: tag.color || DEFAULT_TAG_COLOR }} />
+                        <span className="text-xs font-bold uppercase tracking-widest text-white/70">{tag.label}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingTag(tag.value);
+                            setTagForm({ value: tag.value, label: tag.label, color: tag.color || DEFAULT_TAG_COLOR });
+                          }}
+                          className="p-1 text-white/40 hover:text-white"
+                          aria-label={`Edit ${tag.label}`}
+                        >
+                          <Edit2 className="h-3 w-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteTag(tag.value)}
+                          className="p-1 text-white/40 hover:text-red-400"
+                          aria-label={`Delete ${tag.label}`}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 {contributors.filter(c => contributorFilter === 'all' || c.tag === contributorFilter).length === 0 && (
@@ -770,9 +951,9 @@ export default function AdminDashboard() {
                     >
                       <div className="flex items-center gap-4 min-w-0">
                         {contributor.image_url ? (
-                          <img src={contributor.image_url} className="w-12 h-14 rounded-xl object-cover flex-shrink-0" alt="" />
+                          <img src={contributor.image_url} className="w-12 h-12 rounded-xl object-cover object-center flex-shrink-0" alt="" />
                         ) : (
-                          <div className="w-12 h-14 rounded-xl bg-white/10 flex items-center justify-center text-white/40 flex-shrink-0"><User className="w-5 h-5" /></div>
+                          <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center text-white/40 flex-shrink-0"><User className="w-5 h-5" /></div>
                         )}
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 mb-1">
@@ -781,10 +962,9 @@ export default function AdminDashboard() {
                           </div>
                           <p className="text-white/40 text-xs uppercase tracking-widest truncate">{contributor.role}</p>
                           <div className="flex flex-wrap items-center gap-2 mt-2 text-[10px] font-bold uppercase tracking-widest text-white/30">
-                            <span>{formatContributorTag(contributor.tag)}</span>
+                            <span>{getContributorTag(contributor.tag).label}</span>
                             <span>Joined {contributor.joined_at || 'Unknown'}</span>
                             <span>{contributor.points ?? 0} pts</span>
-                            <span>Order {contributor.sort_order ?? 0}</span>
                           </div>
                         </div>
                       </div>
