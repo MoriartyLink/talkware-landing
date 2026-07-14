@@ -40,6 +40,7 @@ interface Contributor {
   active: boolean;
   joined_at: string;
   points?: number;
+  sort_order?: number;
 }
 
 const TAG_LABELS: Record<string, string> = {
@@ -69,13 +70,12 @@ const isCommunityLead = (tag: string) => {
 const getContributorGroup = (contributor: Contributor) =>
   isCommunityLead(contributor.tag) ? 'community_leads' : 'contributors';
 
-const getContributionTone = (points = 0, maxPoints = 0, active = true) => {
-  if (!active) return 'rgba(8, 10, 14, 0.95)';
+const getContributionTone = (points = 0, maxPoints = 0) => {
   const level = maxPoints > 0 ? Math.min(1, points / maxPoints) : 0;
-  if (level >= 0.75) return 'rgba(129, 140, 248, 0.96)';
-  if (level >= 0.45) return 'rgba(147, 197, 253, 0.82)';
-  if (level > 0) return 'rgba(196, 181, 253, 0.58)';
-  return 'rgba(71, 85, 105, 0.85)';
+  if (level >= 0.75) return 'rgba(57, 211, 83, 0.96)';
+  if (level >= 0.45) return 'rgba(38, 166, 65, 0.82)';
+  if (level > 0) return 'rgba(14, 99, 42, 0.68)';
+  return 'rgba(22, 27, 34, 0.95)';
 };
 
 export default function LandingPage() {
@@ -141,6 +141,11 @@ export default function LandingPage() {
   const visibleContributors = activeFilter === 'all'
     ? contributors
     : contributors.filter(contributor => getContributorGroup(contributor) === activeFilter);
+  const sortedVisibleContributors = [...visibleContributors].sort((a, b) => {
+    const pointDiff = (b.points || 0) - (a.points || 0);
+    if (pointDiff !== 0) return pointDiff;
+    return (a.sort_order || 0) - (b.sort_order || 0);
+  });
 
   const displayHighlights = highlights.length > 0 ? highlights : [
     {
@@ -474,57 +479,54 @@ export default function LandingPage() {
         {/* Team */}
         <section id="contributors" className="py-24 px-6 border-t border-white/5">
           <div className="max-w-7xl mx-auto">
-            <div className="text-center mb-10">
-              <h2 className="text-4xl md:text-5xl font-display font-bold mb-6 text-gradient">Our Team</h2>
-              <p className="text-white/60 max-w-2xl mx-auto">Community Leads and Contributors</p>
+            <div className="mb-10 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+              <div>
+                <h2 className="text-4xl md:text-5xl font-display font-bold mb-4 text-gradient">Our Team</h2>
+                <p className="text-white/60">Community Leads and Contributors</p>
+              </div>
+              <div className="glass inline-flex flex-wrap gap-1 rounded-2xl border border-white/10 p-1 md:justify-end">
+                {teamFilters.map(filter => {
+                  const count = filter.value === 'all'
+                    ? contributors.length
+                    : contributors.filter(c => getContributorGroup(c) === filter.value).length;
+                  return (
+                    <button
+                      key={filter.value}
+                      onClick={() => {
+                        setActiveFilter(filter.value);
+                        setOpenContributorId(null);
+                      }}
+                      className={`rounded-xl px-3 py-2 text-[10px] font-bold uppercase tracking-widest transition-all ${
+                        activeFilter === filter.value
+                          ? 'bg-white text-black'
+                          : 'text-white/45 hover:bg-white/10 hover:text-white'
+                      }`}
+                      title={`${filter.label} (${count})`}
+                    >
+                      {filter.label} <span className="opacity-60">{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            <div className="relative lg:pr-28">
-              {/* Filter Rail */}
-              <div className="mb-8 flex justify-center lg:mb-0 lg:absolute lg:right-0 lg:top-0">
-                <div className="glass inline-flex flex-row lg:flex-col gap-1 rounded-2xl border border-white/10 p-1">
-                  {teamFilters.map(filter => {
-                    const count = filter.value === 'all'
-                      ? contributors.length
-                      : contributors.filter(c => getContributorGroup(c) === filter.value).length;
-                    return (
-                      <button
-                        key={filter.value}
-                        onClick={() => {
-                          setActiveFilter(filter.value);
-                          setOpenContributorId(null);
-                        }}
-                        className={`min-w-0 rounded-xl px-3 py-2 text-[10px] font-bold uppercase tracking-widest transition-all ${
-                          activeFilter === filter.value
-                            ? 'bg-white text-black'
-                            : 'text-white/45 hover:bg-white/10 hover:text-white'
-                        }`}
-                        title={`${filter.label} (${count})`}
-                      >
-                        <span className="block leading-none">{filter.label}</span>
-                        <span className="mt-1 block text-[9px] opacity-60">{count}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
+            <div>
               {/* Contributor Cards */}
-              {visibleContributors.length > 0 ? (
+            {sortedVisibleContributors.length > 0 ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                {visibleContributors
+                {sortedVisibleContributors
                   .map((contributor, i) => {
-                    const contributionTone = getContributionTone(contributor.points, maxContributionPoints, contributor.active);
+                    const contributionTone = getContributionTone(contributor.points, maxContributionPoints);
                     const isOpen = openContributorId === contributor.id;
                     return (
                       <motion.div
                         key={contributor.id}
                         initial={{ opacity: 0, y: 20 }}
-                        whileInView={{ opacity: contributor.active ? 1 : 0.1, y: 0 }}
+                        whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}
                         transition={{ delay: i * 0.06 }}
                         className={`glass rounded-2xl overflow-hidden group flex flex-col relative border transition-all ${
-                          contributor.active ? 'hover:-translate-y-1' : 'bg-black/80 grayscale'
+                          contributor.active ? 'hover:-translate-y-1' : 'bg-black/60'
                         }`}
                         role="button"
                         tabIndex={0}
@@ -541,7 +543,7 @@ export default function LandingPage() {
                         }}
                       >
                         {/* Image */}
-                        <div className="aspect-[4/5] overflow-hidden">
+                        <div className={`aspect-[4/5] overflow-hidden ${contributor.active ? '' : 'opacity-[0.45] grayscale'}`}>
                           {contributor.image_url ? (
                             <img
                               src={contributor.image_url}
@@ -556,7 +558,7 @@ export default function LandingPage() {
                         </div>
 
                         {/* Info */}
-                        <div className="p-3 flex-1 flex flex-col gap-2">
+                        <div className={`p-3 flex-1 flex flex-col gap-2 ${contributor.active ? '' : 'opacity-[0.45]'}`}>
                           {/* Tag badge */}
                           <div className={`self-start inline-flex px-2 py-0.5 rounded-md text-[8px] font-bold uppercase tracking-wider bg-gradient-to-r border ${TAG_COLORS[contributor.tag] || DEFAULT_TAG_COLOR}`}>
                             {formatContributorTag(contributor.tag)}
