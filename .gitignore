@@ -7,4 +7,5 @@ coverage/
 .env*
 !.env.example
 .copilot-specs-cache/
-collaboration-documents/
+artifacts/
+public/
