@@ -67,31 +67,25 @@ Supabase client factory.
 
 ## SQL and Data Files
 
-### `supabase_setup.sql`
+### `database_schema.sql`
 
-Current canonical setup script. It includes:
+Current canonical setup script for contributors. It includes:
 
 - Main content tables.
+- Live contributor tables.
 - `events.archived`.
 - `highlights.event_id`.
 - Event detail tables.
+- Useful foreign-key indexes.
 - RLS policies.
+- Public `assets` bucket creation.
 - Storage policies for the `assets` bucket.
 
-### `seed_data.sql`
+### Local-only SQL Archive
 
-Sample content for local or Supabase Dashboard seeding.
-
-### `diagnose_schema.sql`
-
-Schema inspection/debug helper.
-
-### `clean_setup_v3.sql`
-
-Older reset script. It does not include every field/table used by the current React code. Do not treat it as the active schema unless it is updated first.
+Older SQL scripts are kept locally under `.local-sql-archive/` and ignored by Git. Do not use them as the contributor setup path.
 
 ## Static Assets
 
 - `public/splash-screen.mp4` is the splash video.
 - UI references `/logo.png` and several `/assets/...` image paths. These must be available under `public/` at runtime or served by the hosting environment.
-

@@ -45,13 +45,7 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 
 ### 3. Set up Supabase
 
-Run the SQL in `supabase_setup.sql` from the Supabase SQL Editor.
-
-Optional sample data:
-
-```text
-seed_data.sql
-```
+Run the SQL in `database_schema.sql` from the Supabase SQL Editor.
 
 ## Development
 
@@ -93,18 +87,14 @@ The build output is generated in `dist/` and can be deployed to static hosting p
 
 ## Database
 
-The main setup script is `supabase_setup.sql`. It creates tables, storage policies, and row-level security policies.
+The main setup script is `database_schema.sql`. It creates tables, indexes, the public storage bucket, storage policies, and row-level security policies.
 
 Access model:
 
 - Public users can read published content.
 - Authenticated users can create, update, and delete content.
 
-Additional SQL helpers are available in:
-
-- `seed_data.sql`
-- `diagnose_schema.sql`
-- `clean_setup_v3.sql`
+Older local SQL helper scripts are intentionally ignored and are not part of the contributor setup path.
 
 ## Contributing
 

@@ -2,7 +2,7 @@
 
 ## Canonical Schema Source
 
-Use `supabase_setup.sql` as the active schema source. `clean_setup_v3.sql` is older and is missing current event detail support.
+Use `database_schema.sql` as the active schema source. Older SQL helper scripts are local-only and ignored.
 
 ## Tables
 
@@ -78,6 +78,36 @@ Stores founding team profile cards.
 | `sort_order` | `int` | Controls landing/admin ordering |
 | `created_at` | `timestamptz` | Defaults to current UTC time |
 
+### `contributor_tags`
+
+Stores contributor category metadata from the live Supabase schema.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `value` | `text` | Primary key |
+| `label` | `text` | Required display label |
+| `color` | `text` | Required color value, defaults to `#34d399` |
+| `created_at` | `timestamptz` | Defaults to current time |
+
+### `contributors`
+
+Stores contributor profile data from the live Supabase schema.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | Primary key |
+| `name` | `text` | Required |
+| `role` | `text` | Required |
+| `tag` | `text` | Required, defaults to `volunteer` |
+| `image_url` | `text` | Optional public image URL |
+| `active` | `boolean` | Defaults to `true` |
+| `points` | `int` | Defaults to `0`, must be non-negative |
+| `joined_at` | `date` | Defaults to current date |
+| `sort_order` | `int` | Display order |
+| `created_at` | `timestamptz` | Defaults to current UTC time |
+| `github_url` | `text` | Optional |
+| `linkedin_url` | `text` | Optional |
+
 ### `event_media`
 
 Stores event detail photos and videos.
@@ -123,4 +153,3 @@ Stores structured event detail content blocks.
 - `highlights.event_id` optionally links a past event card to an event detail page.
 - `event_media.event_id` and `event_sections.event_id` belong to one event.
 - Deleting an event cascades to its media and sections.
-

@@ -4,7 +4,7 @@
 
 - React components and pages use PascalCase file names: `LandingPage.tsx`, `AdminDashboard.tsx`, `SplashScreen.tsx`.
 - Shared libraries use lowercase names: `src/lib/supabase.ts`.
-- SQL scripts use snake_case names: `supabase_setup.sql`, `seed_data.sql`, `diagnose_schema.sql`.
+- SQL scripts use snake_case names. The contributor-facing schema is `database_schema.sql`.
 - Generated/build output stays in standard folders: `dist/`, `node_modules/`.
 
 ## React and TypeScript
@@ -24,6 +24,8 @@
   - `co_creators`
   - `volunteers`
   - `founding_team`
+  - `contributor_tags`
+  - `contributors`
   - `event_media`
   - `event_sections`
 - Columns use lowercase snake_case:
@@ -56,4 +58,3 @@
 - `events.type` is limited to `Meetup` or `Training`.
 - `event_media.media_type` is limited to `photo` or `video`.
 - `event_sections.section_type` is limited to `highlight`, `activity`, `game`, or `win`.
-
