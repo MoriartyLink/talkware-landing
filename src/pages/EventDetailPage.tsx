@@ -479,7 +479,7 @@ export default function EventDetailPage() {
                 <li><a href="/#mission" className="hover:text-white transition-colors">Our Mission</a></li>
                 <li><a href="/#past-events" className="hover:text-white transition-colors">Past Events</a></li>
                 <li><a href="/#story" className="hover:text-white transition-colors">Our Story</a></li>
-                <li><a href="/#founders" className="hover:text-white transition-colors">The Team</a></li>
+                <li><a href="/#contributors" className="hover:text-white transition-colors">The Team</a></li>
               </ul>
             </div>
             <div>
@@ -503,5 +503,4 @@ export default function EventDetailPage() {
     </div>
   );
 }
-
 

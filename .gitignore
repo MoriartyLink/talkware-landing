@@ -14,3 +14,4 @@ supabase_setup.sql
 clean_setup_v3.sql
 diagnose_schema.sql
 seed_data.sql
+INSTRUCTION.md
