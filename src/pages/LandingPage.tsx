@@ -241,7 +241,7 @@ export default function LandingPage() {
 
       <main>
         {/* Hero Section */}
-        <section className="relative pt-40 pb-20 px-6 overflow-hidden">
+        <section className="relative min-h-screen flex items-center justify-center pt-20 px-6 overflow-hidden">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full -z-10 opacity-30 pointer-events-none">
             <div className="absolute top-20 left-1/4 w-96 h-96 bg-white/10 rounded-full blur-[120px]" />
             <div className="absolute bottom-20 right-1/4 w-96 h-96 bg-white/5 rounded-full blur-[120px]" />
@@ -253,11 +253,6 @@ export default function LandingPage() {
             animate="visible"
             className="max-w-7xl mx-auto text-center"
           >
-            <motion.div variants={itemVariants} className="inline-flex items-center gap-2 px-3 py-1 rounded-full glass text-[10px] font-bold uppercase tracking-widest mb-8">
-              <Zap className="w-3 h-3" />
-              <span>Community Program by Pockraft Studio</span>
-            </motion.div>
-
             <motion.h1 variants={itemVariants} className="text-6xl md:text-8xl lg:text-9xl font-display font-bold leading-[0.9] tracking-tighter mb-8 text-gradient">
               TALKWARE <br /> COMMUNITY
             </motion.h1>
